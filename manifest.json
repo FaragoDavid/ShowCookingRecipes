@@ -1,0 +1,10 @@
+﻿{
+  "Name": "ShowCookingRecipes",
+  "Author": "Faragó Dávid",
+  "Version": "1.0.0",
+  "Description": "A mod showing the reipe for craftable dishes in the collections.",
+  "UniqueID": "faragodavid.showcookingrecipe",
+  "EntryDll": "ShowCookingRecipes.dll",
+  "MinimumApiVersion": "2.10.0",
+  "UpdateKeys": []
+}
