@@ -140,8 +140,6 @@ namespace ShowCookingRecipes {
         }
 
         private void DrawHoverTextBox(string description, int x, int y) {
-                Game1.spriteBatch.End();
-
             Vector2 stringLength = Game1.smallFont.MeasureString(description);
             int width = (int)stringLength.X + Game1.tileSize / 2 + 40;
             int height = (int)stringLength.Y + Game1.tileSize / 3 + 5;
@@ -168,7 +166,7 @@ namespace ShowCookingRecipes {
                 new Rectangle(0, 256, 60, 60),
                 x, y,
                 width, height,
-                Color.White
+                Color.White, 1f, true
             );
             Game1.spriteBatch.End();
             /*Utility.drawTextWithShadow(
