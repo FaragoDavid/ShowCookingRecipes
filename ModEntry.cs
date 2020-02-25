@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using Harmony;
 using Microsoft.Xna.Framework;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
@@ -15,7 +14,6 @@ namespace ShowCookingRecipes {
          *********/
         private readonly int COOKING_COLLECTION_SIDETAB_KEY = 4;
 
-        private static string debugMessage = null;
         private int currentCollectionTabKey = 0;
         private int currentCollectionTabPage = 0;
         private bool eventsSubscribed = false;
@@ -24,7 +22,7 @@ namespace ShowCookingRecipes {
         private CraftingRecipe cookingRecipe;
         private CollectionsPage collectionsPage;
 
-        public float ZoomLevel => 1.0f; // SMAPI's draw call will handle zoom
+        public static float ZoomLevel => 1.0f; // SMAPI's draw call will handle zoom
 
         /*********
         ** Public methods
@@ -49,16 +47,8 @@ namespace ShowCookingRecipes {
                 _mousePositionY = Game1.getOldMouseY();
 
             cookingRecipe.getSpriteIndexFromRawIndex(cookingObjectRawItemIndex);
-            // -- Part of the spritesheet containing the texture we want to draw
-            Rectangle _menuTextureSourceRect = new Rectangle(0, 256, 60, 60);
 
-
-            string name = cookingRecipe.getNameFromIndex(cookingObjectRawItemIndex);
-            string description = GetDescriptionFromIndex(cookingObjectRawItemIndex);
-            int timesCooked = cookingRecipe.timesCrafted;
-            string price = GetPriceFromIndex(cookingObjectRawItemIndex);
             Dictionary<int, int> ingredientList = GetIngredientListOfCookingRecipe();
-
             string ingredientListText = "";
             foreach (int ingredientRawItemIndex in ingredientList.Keys) {
                 int quantity = ingredientList[ingredientRawItemIndex];
@@ -70,33 +60,48 @@ namespace ShowCookingRecipes {
                 );
             }
 
-
-            string fullText = name + Environment.NewLine + Environment.NewLine
-                + description + Environment.NewLine + Environment.NewLine;
-            if (timesCooked > 0) {
-                fullText += "Times cooked: " + timesCooked + Environment.NewLine;
-            }
-            fullText += price/* + Environment.NewLine + ingredientListText*/;
-
-
-            Vector2 _stringLength = Game1.smallFont.MeasureString(fullText);
-            int _textureBoxWidth = (int)_stringLength.X + Game1.tileSize / 2 + 40;
-            int _textureBoxHeight = (int)_stringLength.Y + Game1.tileSize / 3 + 5;
-
+            // Local declarations
+            string _name = cookingRecipe.getNameFromIndex(cookingObjectRawItemIndex);
+            string _description = GetDescriptionFromIndex(cookingObjectRawItemIndex);
+            int _timesCooked = Game1.player.recipesCooked.ContainsKey(cookingObjectRawItemIndex) ? Game1.player.recipesCooked[cookingObjectRawItemIndex] : 0;
+            string _price = GetPriceFromIndex(cookingObjectRawItemIndex);
 
             // Draw bounding box
-            IClickableMenu.drawTextureBox(Game1.spriteBatch, Game1.menuTexture, _menuTextureSourceRect, color: Color.White, scale: this.ZoomLevel,
-                x: _mousePositionX, y: _mousePositionY,
-                width: _textureBoxWidth, height: _textureBoxHeight
-            );
-            // Draw text on box
-            Utility.drawTextWithShadow(Game1.spriteBatch, font: Game1.smallFont, color: Game1.textColor,
-                text: fullText,
-                position: new Vector2(
-                    _mousePositionX + Game1.tileSize / 4,
-                    _mousePositionY + Game1.tileSize / 4
-                )
-            );
+            // TODO: Fix width + height
+            string _fullText = _name + Environment.NewLine
+                + _description + Environment.NewLine;
+            if (_timesCooked > 0) {
+                _fullText += "Times cooked: " + _timesCooked + Environment.NewLine;
+            }
+            _fullText += _price/* + Environment.NewLine + ingredientListText*/;
+            DrawUtil.DrawBoundingBox(_mousePositionX, _mousePositionY, Game1.smallFont.MeasureString(_fullText));
+
+            // Draw name text
+            DrawUtil.DrawName(_name, _mousePositionX, _mousePositionY);
+
+            // Draw description text
+            int _descriptionYOffset = (int) Game1.smallFont.MeasureString(_name + Environment.NewLine).Y,
+                _descriptionY = _mousePositionY + _descriptionYOffset;
+            DrawUtil.DrawDescription(_description, new Vector2(_mousePositionX, _descriptionY));
+
+            // Draw times cooked text if it had ever been cooked
+            int _timesCookedY = _descriptionY;
+            if (_timesCooked > 0) {
+                int _timesCookedYOffset = (int)Game1.smallFont.MeasureString(_timesCooked.ToString() + Environment.NewLine).Y;
+                _timesCookedY += _timesCookedYOffset;
+                DrawUtil.DrawTimesCooked(_timesCooked, new Vector2(_mousePositionX, _timesCookedY));
+            }
+
+            // Draw price
+            int _priceYOffset = (int)Game1.smallFont.MeasureString(_description + Environment.NewLine).Y;
+            if(_timesCooked > 0) {
+                _priceYOffset += (int)Game1.smallFont.MeasureString(_timesCooked.ToString() + Environment.NewLine).Y;
+            }
+            int _priceY = _timesCookedY + _priceYOffset;
+            DrawUtil.DrawPrice(_price, new Vector2(_mousePositionX, _priceY));
+
+            // Draw ingredients
+            //DrawIngredients();
         }
 
         /// <summary>
@@ -104,21 +109,21 @@ namespace ShowCookingRecipes {
         /// </summary>
         /// <param name="cookingObjectName"></param>
         /// <returns></returns>
-        private string GetCookingRecipeName(string cookingObjectName) {
+        private void SetCookingRecipe(string cookingObjectName) {
             switch (cookingObjectName) {
-                case "Cheese Cauliflower": return "Cheese Cauli.";
-                case "Eggplant Parmesan": return "Eggplant Parm.";
-                case "Vegetable Medley": return "Vegetable Stew";
-                case "Cookie": return "Cookies";
-                case "Cranberry Sauce": return "Cran. Sauce";
-                case "Dish O' The Sea": return "Dish o' The Sea";
-                default: return cookingObjectName;
+                case "Cheese Cauliflower": cookingRecipe = new CraftingRecipe("Cheese Cauli.", true); break;
+                case "Eggplant Parmesan": cookingRecipe = new CraftingRecipe("Eggplant Parm.", true); break;
+                case "Vegetable Medley": cookingRecipe = new CraftingRecipe("Vegetable Stew", true); break;
+                case "Cookie": cookingRecipe = new CraftingRecipe("Cookies", true); break;
+                case "Cranberry Sauce": cookingRecipe = new CraftingRecipe("Cran. Sauce", true); break;
+                case "Dish O' The Sea": cookingRecipe = new CraftingRecipe("Dish o' The Sea", true); break;
+                default: cookingRecipe = new CraftingRecipe(cookingObjectName, true); break;
             }
         }
 
         private string GetDescriptionFromIndex(int index) {
             if (index > 0) {
-                return Game1.objectInformation[index].Split('/')[5];
+                return Game1.parseText(Game1.objectInformation[index].Split('/')[5], Game1.smallFont, 256);
             }
 
             return null;
@@ -134,7 +139,7 @@ namespace ShowCookingRecipes {
             try {
                 // Local declarations
 
-                LogDebugMessage(cookingRecipe.DisplayName);
+                Monitor.Log(cookingRecipe.DisplayName);
 
                 string recipeData = CraftingRecipe.cookingRecipes[cookingRecipe.DisplayName];
                 string[] ingredientData = recipeData.Split('/')[0].Split(' ');
@@ -151,7 +156,7 @@ namespace ShowCookingRecipes {
 
                 return ingredientKeyToQuantity;
             } catch (Exception e) {
-                LogDebugMessage(cookingObject.Split('/')[4]);
+                Monitor.Log(cookingObject.Split('/')[4]);
                 return new Dictionary<int, int>();
             }
         }
@@ -196,13 +201,6 @@ namespace ShowCookingRecipes {
             }
 
             return false;
-        }
-
-        private void LogDebugMessage(String message) {
-            if (message != debugMessage) {
-                Monitor.Log(message, LogLevel.Debug);
-                debugMessage = message;
-            }
         }
 
         private void OnButtonPressed(object sender, ButtonPressedEventArgs e) {
@@ -258,10 +256,6 @@ namespace ShowCookingRecipes {
         }
 
         private void OnSaveLoaded(object sender, SaveLoadedEventArgs e) {
-            foreach (KeyValuePair<string, string> v in CraftingRecipe.cookingRecipes) {
-                LogDebugMessage(v.Key);
-            }
-
             Helper.Events.Input.ButtonPressed += OnButtonPressed;
             Helper.Events.Display.MenuChanged += OnMenuChanged;
         }
@@ -295,7 +289,7 @@ namespace ShowCookingRecipes {
                 UnsubscribeEvents();
             }
 
-            LogDebugMessage("currentCollectionPageTab set to: " + currentCollectionTabKey);
+            Monitor.Log("currentCollectionPageTab set to: " + currentCollectionTabKey);
 
             UpdateCurrentCollectionTabPage(0);
         }
@@ -307,7 +301,7 @@ namespace ShowCookingRecipes {
                 currentCollectionTabPage = pageIndex;
             }
 
-            LogDebugMessage("currentCollectionTabPage set to " + currentCollectionTabPage);
+            Monitor.Log("currentCollectionTabPage set to " + currentCollectionTabPage);
         }
 
         /// <summary>
@@ -324,7 +318,7 @@ namespace ShowCookingRecipes {
                 if (textureComponent.containsPoint(Game1.getOldMouseX(), Game1.getOldMouseY())) {
                     cookingObjectRawItemIndex = Convert.ToInt32(textureComponent.name.Split(' ')[0]);
                     cookingObject = Game1.objectInformation[cookingObjectRawItemIndex];
-                    cookingRecipe = new CraftingRecipe(GetCookingRecipeName(cookingObject.Split('/')[4]), true);
+                    SetCookingRecipe(cookingObject.Split('/')[4]);
                 }
             }
         }
