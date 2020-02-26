@@ -19,8 +19,10 @@ namespace ShowCookingRecipes {
         private bool eventsSubscribed = false;
         private string cookingObject;
         private int cookingObjectRawItemIndex;
-        private CraftingRecipe cookingRecipe;
+        public static CraftingRecipe cookingRecipe;
         private CollectionsPage collectionsPage;
+
+        public static IMonitor monitor;
 
         public static float ZoomLevel => 1.0f; // SMAPI's draw call will handle zoom
 
@@ -31,6 +33,9 @@ namespace ShowCookingRecipes {
         /// <param name="helper">Provides simplified APIs for writing mods.</param>
         public override void Entry(IModHelper helper) {
             Helper.Events.GameLoop.SaveLoaded += OnSaveLoaded;
+
+            // Expose monitor for other classes
+            monitor = Monitor;
         }
 
         /*********
@@ -43,15 +48,17 @@ namespace ShowCookingRecipes {
         private void DrawCookingCollectionItemTooltip() {
 
             // Local declarations
-            int _mousePositionX = Game1.getOldMouseX(),
-                _mousePositionY = Game1.getOldMouseY();
+            Vector2 _boundingBoxPosition = new Vector2(
+                Game1.getOldMouseX() + DrawUtil.globalOffsetX,
+                Game1.getOldMouseY() + DrawUtil.globalOffsetX
+            );
 
             cookingRecipe.getSpriteIndexFromRawIndex(cookingObjectRawItemIndex);
 
-            Dictionary<int, int> ingredientList = GetIngredientListOfCookingRecipe();
+            Dictionary<int, int> _ingredientKeyValuePairs = GetIngredientListOfCookingRecipe();
             string ingredientListText = "";
-            foreach (int ingredientRawItemIndex in ingredientList.Keys) {
-                int quantity = ingredientList[ingredientRawItemIndex];
+            foreach (int ingredientRawItemIndex in _ingredientKeyValuePairs.Keys) {
+                int quantity = _ingredientKeyValuePairs[ingredientRawItemIndex];
                 ingredientListText += (
                     Environment.NewLine
                     + quantity
@@ -63,45 +70,56 @@ namespace ShowCookingRecipes {
             // Local declarations
             string _name = cookingRecipe.getNameFromIndex(cookingObjectRawItemIndex);
             string _description = GetDescriptionFromIndex(cookingObjectRawItemIndex);
-            int _timesCooked = Game1.player.recipesCooked.ContainsKey(cookingObjectRawItemIndex) ? Game1.player.recipesCooked[cookingObjectRawItemIndex] : 0;
+            int _timesCooked = Game1.player.recipesCooked.ContainsKey(cookingObjectRawItemIndex) 
+                ? Game1.player.recipesCooked[cookingObjectRawItemIndex] 
+                : 0;
             string _price = GetPriceFromIndex(cookingObjectRawItemIndex);
 
             // Draw bounding box
-            // TODO: Fix width + height
-            string _fullText = _name + Environment.NewLine
-                + _description + Environment.NewLine;
+            int _boundingBoxHeight = (int)Game1.smallFont.MeasureString(_name).Y
+                + (int)Game1.smallFont.MeasureString(_description).Y
+                + (int)Game1.smallFont.MeasureString(_price).Y
+                + _ingredientKeyValuePairs.Count * DrawUtil.smallFontLowerCaseHeight
+                + (4 * DrawUtil.smallFontLowerCaseHeight);
             if (_timesCooked > 0) {
-                _fullText += "Times cooked: " + _timesCooked + Environment.NewLine;
+                _boundingBoxHeight += (int)Game1.smallFont.MeasureString(_timesCooked.ToString()).Y + DrawUtil.smallFontLowerCaseHeight;
             }
-            _fullText += _price/* + Environment.NewLine + ingredientListText*/;
-            DrawUtil.DrawBoundingBox(_mousePositionX, _mousePositionY, Game1.smallFont.MeasureString(_fullText));
+            // TODO: take max of more than name and description
+            int _boundingBoxWidth = Math.Max(
+                (int)Game1.smallFont.MeasureString(_name).X,
+                (int)Game1.smallFont.MeasureString(_description).X
+            );
+            foreach(KeyValuePair<int,int> keyValuePair in _ingredientKeyValuePairs) {
+                // TODO: add sprit width + padding
+                int _ingredientNameWidth = (int)Game1.smallFont.MeasureString(cookingRecipe.getNameFromIndex(keyValuePair.Key)).X,
+                    _ingredientLineWidth = DrawUtil.spriteOffsetX + DrawUtil.textOffsetX + _ingredientNameWidth;
+                if (_boundingBoxWidth < _ingredientLineWidth) {
+                    _boundingBoxWidth = _ingredientLineWidth;
+                }
+            }
+            DrawUtil.DrawBoundingBox(_boundingBoxPosition, _boundingBoxWidth, _boundingBoxHeight);
 
             // Draw name text
-            DrawUtil.DrawName(_name, _mousePositionX, _mousePositionY);
+            Vector2 _textPosition = _boundingBoxPosition + new Vector2(DrawUtil.textOffsetX, DrawUtil.textOffsetY);
+            DrawUtil.DrawName(_name, _textPosition);
+            _textPosition.Y += Game1.smallFont.MeasureString(_name).Y + DrawUtil.smallFontLowerCaseHeight;
 
             // Draw description text
-            int _descriptionYOffset = (int) Game1.smallFont.MeasureString(_name + Environment.NewLine).Y,
-                _descriptionY = _mousePositionY + _descriptionYOffset;
-            DrawUtil.DrawDescription(_description, new Vector2(_mousePositionX, _descriptionY));
+            DrawUtil.DrawDescription(_description, _textPosition);
+            _textPosition.Y += Game1.smallFont.MeasureString(_description).Y + DrawUtil.smallFontLowerCaseHeight;
 
             // Draw times cooked text if it had ever been cooked
-            int _timesCookedY = _descriptionY;
             if (_timesCooked > 0) {
-                int _timesCookedYOffset = (int)Game1.smallFont.MeasureString(_timesCooked.ToString() + Environment.NewLine).Y;
-                _timesCookedY += _timesCookedYOffset;
-                DrawUtil.DrawTimesCooked(_timesCooked, new Vector2(_mousePositionX, _timesCookedY));
+                DrawUtil.DrawTimesCooked(_timesCooked, _textPosition);
+                _textPosition.Y += Game1.smallFont.MeasureString(_timesCooked.ToString()).Y + DrawUtil.smallFontLowerCaseHeight;
             }
 
             // Draw price
-            int _priceYOffset = (int)Game1.smallFont.MeasureString(_description + Environment.NewLine).Y;
-            if(_timesCooked > 0) {
-                _priceYOffset += (int)Game1.smallFont.MeasureString(_timesCooked.ToString() + Environment.NewLine).Y;
-            }
-            int _priceY = _timesCookedY + _priceYOffset;
-            DrawUtil.DrawPrice(_price, new Vector2(_mousePositionX, _priceY));
+            DrawUtil.DrawPrice(_price, _textPosition);
+            _textPosition.Y += Game1.smallFont.MeasureString(_price).Y + DrawUtil.smallFontLowerCaseHeight;
 
             // Draw ingredients
-            //DrawIngredients();
+            DrawUtil.DrawIngredients(_ingredientKeyValuePairs, _textPosition);
         }
 
         /// <summary>
@@ -167,7 +185,7 @@ namespace ShowCookingRecipes {
         /// </summary>
         /// <param name="index">Sprite index of object</param>
         /// <returns>Rectangle containint the sprite of the item.</returns>
-        private Rectangle GetObjectSprite(int index) {
+        public static Rectangle GetObjectSprite(int index) {
             return Game1.getSourceRectForStandardTileSheet(
                 Game1.objectSpriteSheet,
                 cookingRecipe.getSpriteIndexFromRawIndex(index),
@@ -256,6 +274,13 @@ namespace ShowCookingRecipes {
         }
 
         private void OnSaveLoaded(object sender, SaveLoadedEventArgs e) {
+            /*foreach(KeyValuePair<string, string> keyValuePair in CraftingRecipe.cookingRecipes) {
+                Monitor.Log(
+                    keyValuePair.Key + ": " + Game1.smallFont.MeasureString(keyValuePair.Key).X + ", " + Game1.smallFont.MeasureString(keyValuePair.Key).Y,
+                    LogLevel.Debug
+                );
+            }*/
+
             Helper.Events.Input.ButtonPressed += OnButtonPressed;
             Helper.Events.Display.MenuChanged += OnMenuChanged;
         }
