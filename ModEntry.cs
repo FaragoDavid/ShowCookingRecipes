@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using Microsoft.Xna.Framework;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
@@ -9,22 +8,15 @@ using StardewValley.Menus;
 namespace ShowCookingRecipes {
     /// <summary>The mod entry point.</summary>
     public class ModEntry : Mod {
-        /*********
-         ** Properties
-         *********/
-        private readonly int COOKING_COLLECTION_SIDETAB_KEY = 4;
-
+        private readonly int cookingCollectionTabKey = 4;
         private int currentCollectionTabKey = 0;
         private int currentCollectionTabPage = 0;
         private bool eventsSubscribed = false;
         private string cookingObject;
         private int cookingObjectRawItemIndex;
-        public static CraftingRecipe cookingRecipe;
         private CollectionsPage collectionsPage;
 
-        public static IMonitor monitor;
-
-        public static float ZoomLevel => 1.0f; // SMAPI's draw call will handle zoom
+        public static CraftingRecipe cookingRecipe;
 
         /*********
         ** Public methods
@@ -33,9 +25,6 @@ namespace ShowCookingRecipes {
         /// <param name="helper">Provides simplified APIs for writing mods.</param>
         public override void Entry(IModHelper helper) {
             Helper.Events.GameLoop.SaveLoaded += OnSaveLoaded;
-
-            // Expose monitor for other classes
-            monitor = Monitor;
         }
 
         /*********
@@ -43,90 +32,8 @@ namespace ShowCookingRecipes {
         *********/
 
         /// <summary>
-        /// Draws a tooltip box containing the name, description, number of times cooked, price and ingredient list of an item.
-        /// </summary>
-        private void DrawCookingCollectionItemTooltip() {
-
-            // Local declarations
-            Vector2 _boundingBoxPosition = new Vector2(
-                Game1.getOldMouseX() + DrawUtil.globalOffsetX,
-                Game1.getOldMouseY() + DrawUtil.globalOffsetX
-            );
-
-            cookingRecipe.getSpriteIndexFromRawIndex(cookingObjectRawItemIndex);
-
-            Dictionary<int, int> _ingredientKeyValuePairs = GetIngredientListOfCookingRecipe();
-            string ingredientListText = "";
-            foreach (int ingredientRawItemIndex in _ingredientKeyValuePairs.Keys) {
-                int quantity = _ingredientKeyValuePairs[ingredientRawItemIndex];
-                ingredientListText += (
-                    Environment.NewLine
-                    + quantity
-                    + " "
-                    + cookingRecipe.getNameFromIndex(ingredientRawItemIndex)
-                );
-            }
-
-            // Local declarations
-            string _name = cookingRecipe.getNameFromIndex(cookingObjectRawItemIndex);
-            string _description = GetDescriptionFromIndex(cookingObjectRawItemIndex);
-            int _timesCooked = Game1.player.recipesCooked.ContainsKey(cookingObjectRawItemIndex) 
-                ? Game1.player.recipesCooked[cookingObjectRawItemIndex] 
-                : 0;
-            string _price = GetPriceFromIndex(cookingObjectRawItemIndex);
-
-            // Draw bounding box
-            int _boundingBoxHeight = (int)Game1.smallFont.MeasureString(_name).Y
-                + (int)Game1.smallFont.MeasureString(_description).Y
-                + (int)Game1.smallFont.MeasureString(_price).Y
-                + _ingredientKeyValuePairs.Count * DrawUtil.smallFontLowerCaseHeight
-                + (4 * DrawUtil.smallFontLowerCaseHeight);
-            if (_timesCooked > 0) {
-                _boundingBoxHeight += (int)Game1.smallFont.MeasureString(_timesCooked.ToString()).Y + DrawUtil.smallFontLowerCaseHeight;
-            }
-            // TODO: take max of more than name and description
-            int _boundingBoxWidth = Math.Max(
-                (int)Game1.smallFont.MeasureString(_name).X,
-                (int)Game1.smallFont.MeasureString(_description).X
-            );
-            foreach(KeyValuePair<int,int> keyValuePair in _ingredientKeyValuePairs) {
-                // TODO: add sprit width + padding
-                int _ingredientNameWidth = (int)Game1.smallFont.MeasureString(cookingRecipe.getNameFromIndex(keyValuePair.Key)).X,
-                    _ingredientLineWidth = DrawUtil.spriteOffsetX + DrawUtil.textOffsetX + _ingredientNameWidth;
-                if (_boundingBoxWidth < _ingredientLineWidth) {
-                    _boundingBoxWidth = _ingredientLineWidth;
-                }
-            }
-            DrawUtil.DrawBoundingBox(_boundingBoxPosition, _boundingBoxWidth, _boundingBoxHeight);
-
-            // Draw name text
-            Vector2 _textPosition = _boundingBoxPosition + new Vector2(DrawUtil.textOffsetX, DrawUtil.textOffsetY);
-            DrawUtil.DrawName(_name, _textPosition);
-            _textPosition.Y += Game1.smallFont.MeasureString(_name).Y + DrawUtil.smallFontLowerCaseHeight;
-
-            // Draw description text
-            DrawUtil.DrawDescription(_description, _textPosition);
-            _textPosition.Y += Game1.smallFont.MeasureString(_description).Y + DrawUtil.smallFontLowerCaseHeight;
-
-            // Draw times cooked text if it had ever been cooked
-            if (_timesCooked > 0) {
-                DrawUtil.DrawTimesCooked(_timesCooked, _textPosition);
-                _textPosition.Y += Game1.smallFont.MeasureString(_timesCooked.ToString()).Y + DrawUtil.smallFontLowerCaseHeight;
-            }
-
-            // Draw price
-            DrawUtil.DrawPrice(_price, _textPosition);
-            _textPosition.Y += Game1.smallFont.MeasureString(_price).Y + DrawUtil.smallFontLowerCaseHeight;
-
-            // Draw ingredients
-            DrawUtil.DrawIngredients(_ingredientKeyValuePairs, _textPosition);
-        }
-
-        /// <summary>
         /// Some cooking objects are abbreviated in the cookingRecipe collection, so their names have to be changed when creating a new CraftingRecipe.
         /// </summary>
-        /// <param name="cookingObjectName"></param>
-        /// <returns></returns>
         private void SetCookingRecipe(string cookingObjectName) {
             switch (cookingObjectName) {
                 case "Cheese Cauliflower": cookingRecipe = new CraftingRecipe("Cheese Cauli.", true); break;
@@ -148,50 +55,21 @@ namespace ShowCookingRecipes {
         }
 
         /// <summary>
-        /// Method generating a dictionary of item raw index and quantity pairs for a given object.
+        /// Generates a dictionary of item raw index and quantity pairs for a given object.
         /// </summary>
-        /// <param name="index"></param>
-        /// <returns>Dictionary of index - quantity key-value pairs</returns>
-        // TODO: Error handling?? What happens if the index if not of a cookable object?
         private Dictionary<int, int> GetIngredientListOfCookingRecipe() {
-            try {
-                // Local declarations
+            string _recipeData = CraftingRecipe.cookingRecipes[cookingRecipe.DisplayName];
+            string[] _ingredientData = _recipeData.Split('/')[0].Split(' ');
+            Dictionary<int, int> _ingredientKeyToQuantity = new Dictionary<int, int>();
 
-                Monitor.Log(cookingRecipe.DisplayName);
-
-                string recipeData = CraftingRecipe.cookingRecipes[cookingRecipe.DisplayName];
-                string[] ingredientData = recipeData.Split('/')[0].Split(' ');
-
-                // Result
-                Dictionary<int, int> ingredientKeyToQuantity = new Dictionary<int, int>();
-
-                for (int ingredientIndex = 0; ingredientIndex < ingredientData.Length; ingredientIndex += 2) {
-                    ingredientKeyToQuantity.Add(
-                        Convert.ToInt32(ingredientData[ingredientIndex]),
-                        Convert.ToInt32(ingredientData[ingredientIndex + 1])
-                    );
-                }
-
-                return ingredientKeyToQuantity;
-            } catch (Exception e) {
-                Monitor.Log(cookingObject.Split('/')[4]);
-                return new Dictionary<int, int>();
+            for (int ingredientIndex = 0; ingredientIndex < _ingredientData.Length; ingredientIndex += 2) {
+                _ingredientKeyToQuantity.Add(
+                    Convert.ToInt32(_ingredientData[ingredientIndex]),
+                    Convert.ToInt32(_ingredientData[ingredientIndex + 1])
+                );
             }
-        }
 
-
-        /// <summary>
-        /// Retrieves the sprite of an object
-        /// </summary>
-        /// <param name="index">Sprite index of object</param>
-        /// <returns>Rectangle containint the sprite of the item.</returns>
-        public static Rectangle GetObjectSprite(int index) {
-            return Game1.getSourceRectForStandardTileSheet(
-                Game1.objectSpriteSheet,
-                cookingRecipe.getSpriteIndexFromRawIndex(index),
-                16,
-                16
-            );
+            return _ingredientKeyToQuantity;
         }
 
         private string GetPriceFromIndex(int index) {
@@ -213,7 +91,7 @@ namespace ShowCookingRecipes {
 
         private bool IsCollectionsMenuCookingTabOpen() {
             if (IsCollectionsMenuOpen()) {
-                if (currentCollectionTabKey == COOKING_COLLECTION_SIDETAB_KEY) {
+                if (currentCollectionTabKey == cookingCollectionTabKey) {
                     return true;
                 }
             }
@@ -222,8 +100,6 @@ namespace ShowCookingRecipes {
         }
 
         private void OnButtonPressed(object sender, ButtonPressedEventArgs e) {
-            //LogDebugMessage("OnButtonPressed START");
-
             // Collections menu is open
             if (IsCollectionsMenuOpen()) {
                 // Left mouse button pressed
@@ -243,8 +119,6 @@ namespace ShowCookingRecipes {
                     }
                 }
             }
-
-            // LogDebugMessage("OnButtonPressed END");
         }
 
         private void OnCursorMoved(object sender, CursorMovedEventArgs e) {
@@ -254,7 +128,7 @@ namespace ShowCookingRecipes {
         }
 
         private void OnMenuChanged(object sender, MenuChangedEventArgs e) {
-            // menu closed
+            // Menu closed
             if (e.NewMenu == null) {
                 if (eventsSubscribed) {
                     UnsubscribeEvents();
@@ -265,22 +139,23 @@ namespace ShowCookingRecipes {
         /// <summary>
         /// Custom handler of the Rendered event of Helper.Events.Display
         /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
         private void OnRendered(object sender, RenderedEventArgs e) {
             if (cookingRecipe != null) {
-                DrawCookingCollectionItemTooltip();
+                int _timesCooked = Game1.player.recipesCooked.ContainsKey(cookingObjectRawItemIndex)
+                    ? Game1.player.recipesCooked[cookingObjectRawItemIndex]
+                    : 0;
+
+                DrawUtil.DrawCookingCollectionItemTooltip(
+                    name: cookingRecipe.getNameFromIndex(cookingObjectRawItemIndex),
+                    description: GetDescriptionFromIndex(cookingObjectRawItemIndex),
+                    _timesCooked,
+                    price: GetPriceFromIndex(cookingObjectRawItemIndex),
+                    ingredientKeyValuePairs: GetIngredientListOfCookingRecipe()
+                );
             }
         }
 
         private void OnSaveLoaded(object sender, SaveLoadedEventArgs e) {
-            /*foreach(KeyValuePair<string, string> keyValuePair in CraftingRecipe.cookingRecipes) {
-                Monitor.Log(
-                    keyValuePair.Key + ": " + Game1.smallFont.MeasureString(keyValuePair.Key).X + ", " + Game1.smallFont.MeasureString(keyValuePair.Key).Y,
-                    LogLevel.Debug
-                );
-            }*/
-
             Helper.Events.Input.ButtonPressed += OnButtonPressed;
             Helper.Events.Display.MenuChanged += OnMenuChanged;
         }
@@ -308,13 +183,11 @@ namespace ShowCookingRecipes {
         private void UpdateCurrentCollectionTabKey(int tabKey) {
             currentCollectionTabKey = tabKey;
 
-            if (tabKey == COOKING_COLLECTION_SIDETAB_KEY) {
+            if (tabKey == cookingCollectionTabKey) {
                 SubscribeEvents();
             } else {
                 UnsubscribeEvents();
             }
-
-            Monitor.Log("currentCollectionPageTab set to: " + currentCollectionTabKey);
 
             UpdateCurrentCollectionTabPage(0);
         }
@@ -325,8 +198,6 @@ namespace ShowCookingRecipes {
             } else {
                 currentCollectionTabPage = pageIndex;
             }
-
-            Monitor.Log("currentCollectionTabPage set to " + currentCollectionTabPage);
         }
 
         /// <summary>
