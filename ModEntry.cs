@@ -11,12 +11,16 @@ namespace ShowCookingRecipes {
         private readonly int cookingCollectionTabKey = 4;
         private int currentCollectionTabKey = 0;
         private int currentCollectionTabPage = 0;
-        private bool eventsSubscribed = false;
+        private bool isCookingCollectionEventSubscribed = false;
+        private bool isOptionAdded = false;
         private string cookingObject;
         private int cookingObjectRawItemIndex;
         private CollectionsPage collectionsPage;
-
+        
         public static CraftingRecipe cookingRecipe;
+
+        public static ModEntry Mod;
+
 
         /*********
         ** Public methods
@@ -24,7 +28,11 @@ namespace ShowCookingRecipes {
         /// <summary>The mod entry point, called after the mod is first loaded.</summary>
         /// <param name="helper">Provides simplified APIs for writing mods.</param>
         public override void Entry(IModHelper helper) {
+            Mod = this;
+
             Helper.Events.GameLoop.SaveLoaded += OnSaveLoaded;
+
+            Helper.Events.Display.RenderingActiveMenu += OnRenderingActiveMenu;
         }
 
         /*********
@@ -99,6 +107,10 @@ namespace ShowCookingRecipes {
             return false;
         }
 
+        private bool IsGameMenuOpen() {
+            return Game1.activeClickableMenu is GameMenu;
+        }
+
         private void OnButtonPressed(object sender, ButtonPressedEventArgs e) {
             // Collections menu is open
             if (IsCollectionsMenuOpen()) {
@@ -130,9 +142,11 @@ namespace ShowCookingRecipes {
         private void OnMenuChanged(object sender, MenuChangedEventArgs e) {
             // Menu closed
             if (e.NewMenu == null) {
-                if (eventsSubscribed) {
+                if (isCookingCollectionEventSubscribed) {
                     UnsubscribeEvents();
                 }
+
+                isOptionAdded = false;
             }
         }
 
@@ -141,17 +155,30 @@ namespace ShowCookingRecipes {
         /// </summary>
         private void OnRendered(object sender, RenderedEventArgs e) {
             if (cookingRecipe != null) {
-                int _timesCooked = Game1.player.recipesCooked.ContainsKey(cookingObjectRawItemIndex)
-                    ? Game1.player.recipesCooked[cookingObjectRawItemIndex]
-                    : 0;
+                if(ModConfig.ShowUnknownRecipes || Game1.player.cookingRecipes.Keys.Contains(cookingObject.Split('/')[4])) {
+                    int _timesCooked = Game1.player.recipesCooked.ContainsKey(cookingObjectRawItemIndex)
+                        ? Game1.player.recipesCooked[cookingObjectRawItemIndex]
+                        : 0;
 
-                DrawUtil.DrawCookingCollectionItemTooltip(
-                    name: cookingRecipe.getNameFromIndex(cookingObjectRawItemIndex),
-                    description: GetDescriptionFromIndex(cookingObjectRawItemIndex),
-                    _timesCooked,
-                    price: GetPriceFromIndex(cookingObjectRawItemIndex),
-                    ingredientKeyValuePairs: GetIngredientListOfCookingRecipe()
-                );
+                    DrawUtil.DrawCookingCollectionItemTooltip(
+                        name: cookingRecipe.getNameFromIndex(cookingObjectRawItemIndex),
+                        description: GetDescriptionFromIndex(cookingObjectRawItemIndex),
+                        _timesCooked,
+                        price: GetPriceFromIndex(cookingObjectRawItemIndex),
+                        ingredientKeyValuePairs: GetIngredientListOfCookingRecipe()
+                    );
+                }
+            }
+        }
+
+        private void OnRenderingActiveMenu(object sender, RenderingActiveMenuEventArgs e) {
+            if(IsGameMenuOpen() && !isOptionAdded) {
+                OptionsPage optionsPage = (OptionsPage)((GameMenu)Game1.activeClickableMenu).pages[6];
+
+                optionsPage.options.Add(new OptionsElement("Show cooking recipes mod:"));
+                optionsPage.options.Add(new CustomOptionsCheckbox("Show Unknown Recipes", 0));
+
+                isOptionAdded = true;
             }
         }
 
@@ -164,13 +191,13 @@ namespace ShowCookingRecipes {
         /// Adds event handlers for the CursorMoved and Rendered events, when the cooking collections tab is open.
         /// </summary>
         private void SubscribeEvents() {
-            eventsSubscribed = true;
+            isCookingCollectionEventSubscribed = true;
 
             Helper.Events.Input.CursorMoved += OnCursorMoved;
             Helper.Events.Display.Rendered += OnRendered;
         }
         private void UnsubscribeEvents() {
-            eventsSubscribed = false;
+            isCookingCollectionEventSubscribed = false;
 
             Helper.Events.Input.CursorMoved -= OnCursorMoved;
             Helper.Events.Display.Rendered -= OnRendered;
@@ -218,5 +245,8 @@ namespace ShowCookingRecipes {
                 }
             }
         }
+    }
+    public static class ModConfig {
+        public static bool ShowUnknownRecipes { get; set; } = false;
     }
 }
