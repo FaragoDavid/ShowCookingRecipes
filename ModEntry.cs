@@ -16,11 +16,11 @@ namespace ShowCookingRecipes {
         private string cookingObject;
         private int cookingObjectRawItemIndex;
         private CollectionsPage collectionsPage;
-        
+
         public static CraftingRecipe cookingRecipe;
 
-        public static ModEntry Mod;
-
+        public static IModHelper helper;
+        public static ModConfig config;
 
         /*********
         ** Public methods
@@ -28,7 +28,8 @@ namespace ShowCookingRecipes {
         /// <summary>The mod entry point, called after the mod is first loaded.</summary>
         /// <param name="helper">Provides simplified APIs for writing mods.</param>
         public override void Entry(IModHelper helper) {
-            Mod = this;
+            helper = Helper;
+            config = Helper.ReadConfig<ModConfig>();
 
             Helper.Events.GameLoop.SaveLoaded += OnSaveLoaded;
 
@@ -155,7 +156,7 @@ namespace ShowCookingRecipes {
         /// </summary>
         private void OnRendered(object sender, RenderedEventArgs e) {
             if (cookingRecipe != null) {
-                if(ModConfig.ShowUnknownRecipes || Game1.player.cookingRecipes.Keys.Contains(cookingObject.Split('/')[4])) {
+                if (config.ShowUnknownRecipes || Game1.player.cookingRecipes.Keys.Contains(cookingObject.Split('/')[4])) {
                     int _timesCooked = Game1.player.recipesCooked.ContainsKey(cookingObjectRawItemIndex)
                         ? Game1.player.recipesCooked[cookingObjectRawItemIndex]
                         : 0;
@@ -172,7 +173,7 @@ namespace ShowCookingRecipes {
         }
 
         private void OnRenderingActiveMenu(object sender, RenderingActiveMenuEventArgs e) {
-            if(IsGameMenuOpen() && !isOptionAdded) {
+            if (IsGameMenuOpen() && !isOptionAdded) {
                 OptionsPage optionsPage = (OptionsPage)((GameMenu)Game1.activeClickableMenu).pages[6];
 
                 optionsPage.options.Add(new OptionsElement("Show cooking recipes mod:"));
@@ -246,7 +247,7 @@ namespace ShowCookingRecipes {
             }
         }
     }
-    public static class ModConfig {
-        public static bool ShowUnknownRecipes { get; set; } = false;
+    public class ModConfig {
+        public bool ShowUnknownRecipes { get; set; } = false;
     }
 }
