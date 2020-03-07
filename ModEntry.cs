@@ -19,8 +19,7 @@ namespace ShowCookingRecipes {
 
         public static CraftingRecipe cookingRecipe;
 
-        public static IModHelper helper;
-        public static ModConfig config;
+        public ModConfig config;
 
         /*********
         ** Public methods
@@ -28,7 +27,6 @@ namespace ShowCookingRecipes {
         /// <summary>The mod entry point, called after the mod is first loaded.</summary>
         /// <param name="helper">Provides simplified APIs for writing mods.</param>
         public override void Entry(IModHelper helper) {
-            helper = Helper;
             config = Helper.ReadConfig<ModConfig>();
 
             Helper.Events.GameLoop.SaveLoaded += OnSaveLoaded;
@@ -177,7 +175,7 @@ namespace ShowCookingRecipes {
                 OptionsPage optionsPage = (OptionsPage)((GameMenu)Game1.activeClickableMenu).pages[6];
 
                 optionsPage.options.Add(new OptionsElement("Show cooking recipes mod:"));
-                optionsPage.options.Add(new CustomOptionsCheckbox("Show Unknown Recipes", 0));
+                optionsPage.options.Add(new CustomOptionsCheckbox("Show Unknown Recipes", 0, this));
 
                 isOptionAdded = true;
             }

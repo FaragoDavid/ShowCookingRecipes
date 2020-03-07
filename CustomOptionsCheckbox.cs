@@ -8,7 +8,11 @@ using System.Threading.Tasks;
 
 namespace ShowCookingRecipes {
     class CustomOptionsCheckbox : StardewValley.Menus.OptionsCheckbox {
-        public CustomOptionsCheckbox(string label, int whichOption) : base(label, whichOption) {
+        private readonly ModEntry mod;
+
+        public CustomOptionsCheckbox(string label, int whichOption, ModEntry mod) : base(label, whichOption) {
+            this.mod = mod;
+
             SetCheckBoxToProperValue(whichOption);
         }
 
@@ -18,11 +22,11 @@ namespace ShowCookingRecipes {
         private void ChangeCheckBoxOption(int whichOption, bool isChecked) {
             switch (whichOption) {
                 case 0:
-                    ModEntry.config.ShowUnknownRecipes = isChecked; 
+                    mod.config.ShowUnknownRecipes = isChecked; 
                     break;
             }
 
-            ModEntry.helper.WriteConfig(ModEntry.config);
+            mod.Helper.WriteConfig(mod.config);
         }
 
         /// <summary>
@@ -45,7 +49,7 @@ namespace ShowCookingRecipes {
         private void SetCheckBoxToProperValue(int whichOption) {
             switch (whichOption) {
                 case 0:
-                    isChecked = ModEntry.config.ShowUnknownRecipes;
+                    isChecked = mod.config.ShowUnknownRecipes;
                     break;
             }
         }
