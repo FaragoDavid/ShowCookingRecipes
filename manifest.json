@@ -1,7 +1,7 @@
 ﻿{
   "Name": "Show Cooking Recipes",
   "Author": "MasterOfMutton",
-  "Version": "1.0.2",
+  "Version": "1.1.0",
   "Description": "A mod for dispaying the recipe of cookable dishes in the collections menu.",
   "UniqueID": "faragodavid.showcookingrecipes",
   "EntryDll": "ShowCookingRecipes.dll",

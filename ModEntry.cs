@@ -20,6 +20,7 @@ namespace ShowCookingRecipes {
         public static CraftingRecipe cookingRecipe;
 
         public ModConfig config;
+        public ITranslationHelper i18n;
 
         /*********
         ** Public methods
@@ -28,6 +29,8 @@ namespace ShowCookingRecipes {
         /// <param name="helper">Provides simplified APIs for writing mods.</param>
         public override void Entry(IModHelper helper) {
             config = Helper.ReadConfig<ModConfig>();
+            i18n = helper.Translation;
+            DrawUtil.mod = this;
 
             Helper.Events.GameLoop.SaveLoaded += OnSaveLoaded;
 
@@ -65,7 +68,7 @@ namespace ShowCookingRecipes {
         /// Generates a dictionary of item raw index and quantity pairs for a given object.
         /// </summary>
         private Dictionary<int, int> GetIngredientListOfCookingRecipe() {
-            string _recipeData = CraftingRecipe.cookingRecipes[cookingRecipe.DisplayName];
+            string _recipeData = CraftingRecipe.cookingRecipes[cookingRecipe.name];
             string[] _ingredientData = _recipeData.Split('/')[0].Split(' ');
             Dictionary<int, int> _ingredientKeyToQuantity = new Dictionary<int, int>();
 
@@ -124,9 +127,9 @@ namespace ShowCookingRecipes {
 
                     // Mouse is positioned on the back or forward arrows
                     if (collectionsPage.backButton.containsPoint(Game1.getOldMouseX(), Game1.getOldMouseY())) {
-                        UpdateCurrentCollectionTabPage(-1, true);
+                        UpdateCurrentCollectionTabPage(0);
                     } else if (collectionsPage.forwardButton.containsPoint(Game1.getOldMouseX(), Game1.getOldMouseY())) {
-                        UpdateCurrentCollectionTabPage(1, true);
+                        UpdateCurrentCollectionTabPage(1);
                     }
                 }
             }
@@ -174,8 +177,8 @@ namespace ShowCookingRecipes {
             if (IsGameMenuOpen() && !isOptionAdded) {
                 OptionsPage optionsPage = (OptionsPage)((GameMenu)Game1.activeClickableMenu).pages[6];
 
-                optionsPage.options.Add(new OptionsElement("Show cooking recipes mod:"));
-                optionsPage.options.Add(new CustomOptionsCheckbox("Show Unknown Recipes", 0, this));
+                optionsPage.options.Add(new OptionsElement(i18n.Get("options.headerLabel")));
+                optionsPage.options.Add(new CustomOptionsCheckbox(i18n.Get("options.showUnknownRecipes"), 0, this));
 
                 isOptionAdded = true;
             }
@@ -218,12 +221,8 @@ namespace ShowCookingRecipes {
             UpdateCurrentCollectionTabPage(0);
         }
 
-        private void UpdateCurrentCollectionTabPage(int pageIndex, bool isIncrement = false) {
-            if (isIncrement) {
-                currentCollectionTabPage += pageIndex;
-            } else {
-                currentCollectionTabPage = pageIndex;
-            }
+        private void UpdateCurrentCollectionTabPage(int pageIndex) {
+            currentCollectionTabPage = pageIndex;
         }
 
         /// <summary>
@@ -240,7 +239,7 @@ namespace ShowCookingRecipes {
                 if (textureComponent.containsPoint(Game1.getOldMouseX(), Game1.getOldMouseY())) {
                     cookingObjectRawItemIndex = Convert.ToInt32(textureComponent.name.Split(' ')[0]);
                     cookingObject = Game1.objectInformation[cookingObjectRawItemIndex];
-                    SetCookingRecipe(cookingObject.Split('/')[4]);
+                    SetCookingRecipe(cookingObject.Split('/')[0]);
                 }
             }
         }

@@ -8,11 +8,13 @@ using System;
 namespace ShowCookingRecipes {
 
     static class DrawUtil {
-        public static readonly int smallFontUpperCaseHeight = 34;
-        public static readonly int smallFontLowerCaseHeight = 26;
-        public static readonly int spriteOffsetX = 20;
-        public static readonly int textOffset = 16;
-        public static readonly int tooltipOffset = 32;
+        private static readonly int smallFontUpperCaseHeight = 34;
+        private static readonly int smallFontLowerCaseHeight = 26;
+        private static readonly int spriteOffsetX = 20;
+        private static readonly int textOffset = 16;
+        private static readonly int tooltipOffset = 32;
+
+        public static ModEntry mod;
 
         /// <summary>
         /// Draws the bounding box of the cooking object hover tooltip.
@@ -244,7 +246,7 @@ namespace ShowCookingRecipes {
         public static void DrawTimesCooked(int cookingRecipeTimesCooked, Vector2 textPosition) {
             Utility.drawTextWithShadow(
                 b: Game1.spriteBatch,
-                text: "Times Cooked: " + cookingRecipeTimesCooked,
+                text: mod.i18n.Get("timesCooked") + cookingRecipeTimesCooked,
                 font: Game1.smallFont,
                 position: new Vector2(textPosition.X, textPosition.Y),
                 color: Game1.textColor
